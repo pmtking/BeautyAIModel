@@ -1,0 +1,104 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+*.tar.gz
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env/
+.env.local
+
+# Datasets & Models (Large Files)
+datasets/
+ai_training/datasets/
+
+*.npy
+*.npz
+*.h5
+*.pb
+*.onnx
+*.pth
+*.pt
+*.ckpt
+*.zip
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+
+# Logs & Temp
+logs/
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.old
+
+# Output Images
+output*.jpg
+test_output*.jpg
+*_output*.jpg
+test_*.jpg
+lip_*.jpg
+nose_*.jpg
+jaw_*.jpg
+mask_*.jpg
+warp_*.jpg
+*.png
+*.gif
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.expo/
+dist/
+build/
+*.ipa
+*.apk
+*.aab
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Secrets
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.secrets/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Project specific
+ser.txt
+task.md
+mock_result.jpg
+output.json
