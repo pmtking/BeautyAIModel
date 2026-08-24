@@ -96,6 +96,8 @@ async def edit_face(
                 "description": result.get('description', ''),
                 "changes": result.get('changes', {}),
                 "intensity": result.get('intensity', 0.5),
+                # 🆕 تحلیل هوشمند «بهترین حالت فوق‌واقعی»
+                "ai_report": result.get('ai_report'),
                 "message": result.get('message', '✅ تغییرات با موفقیت اعمال شد')
             },
             "processing_time": round(time.time() - start_time, 3)
@@ -127,6 +129,7 @@ async def get_styles(area: str = "lip"):
             {'id': 'natural', 'name': 'طبیعی', 'description': 'حجم متعادل و روزمره'}
         ],
         'nose': [
+            {'id': 'ideal_realistic', 'name': '⭐ بهترین حالت (واقعی)', 'description': 'تحلیل هوشمند چهره + اصلاح شخصی‌سازی‌شده فوق‌واقعی'},
             {'id': 'slim_bridge', 'name': 'قلمی', 'description': 'پل بینی باریک و ظریف'},
             {'id': 'doll_tip', 'name': 'عروسکی', 'description': 'نوک بینی گرد و زیبا'},
             {'id': 'natural', 'name': 'طبیعی', 'description': 'فرم متعادل و طبیعی'}

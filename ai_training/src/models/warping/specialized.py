@@ -1,5 +1,9 @@
 """
 مدل‌های تخصصی Warping برای هر ناحیه صورت
+=========================================
+بینی: از nose_styles.py (استایل‌های دقیق با لنگرهای MediaPipe)
+لب:   از lip_styles.py  (استایل‌های روسی/برزیلی/هالیوودی/قلوه‌ای و ...)
+سایر نواحی: radial/directional ساده
 """
 
 import cv2
@@ -7,15 +11,24 @@ import numpy as np
 from typing import List, Tuple, Optional, Dict
 import logging
 
+from .nose_styles import (
+    NoseStyles, NoseAnatomyStyles, NoseWarping, Maneuvers, _resolve
+)
+from .lip_styles import LipStyles, LipGeo, LipWarping
+try:
+    from .nose_anatomy import NoseAnatomy, MP_CLUSTERS, ANATOMY_ORDER
+except Exception:
+    NoseAnatomy = None
+
 logger = logging.getLogger(__name__)
 
 
 # ============================================
-# توابع کمکی
+# توابع کمکی (برای سایر نواحی + سازگاری قدیمی)
 # ============================================
 
 def _apply_radial_warp(image: np.ndarray, center: np.ndarray, max_dist: float,
-                        scale: float) -> np.ndarray:
+                       scale: float) -> np.ndarray:
     """اعمال Warping شعاعی حول یک نقطه مرکزی"""
     h, w = image.shape[:2]
     if max_dist <= 0:
@@ -38,7 +51,7 @@ def _apply_radial_warp(image: np.ndarray, center: np.ndarray, max_dist: float,
 
 
 def _apply_directional_warp(image: np.ndarray, anchor: np.ndarray, radius: float,
-                             dx: float = 0.0, dy: float = 0.0) -> np.ndarray:
+                            dx: float = 0.0, dy: float = 0.0) -> np.ndarray:
     """جابه‌جایی جهت‌دار حول یک نقطه"""
     h, w = image.shape[:2]
     if radius <= 0:
@@ -66,138 +79,15 @@ def _bbox_extent(points: np.ndarray) -> float:
 
 
 # ============================================
-# بینی
+# بینی → استایل‌های دقیق nose_styles
 # ============================================
-
-class NoseWarping:
-    @staticmethod
-    def smaller(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
-        pts = np.array(points, dtype=np.float32)
-        center = pts.mean(axis=0)
-        max_dist = np.max(np.linalg.norm(pts - center, axis=1))
-        scale = 1 - (intensity * 0.3)
-        return _apply_radial_warp(image, center, max_dist, scale)
-
-    @staticmethod
-    def bigger(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
-        pts = np.array(points, dtype=np.float32)
-        center = pts.mean(axis=0)
-        max_dist = np.max(np.linalg.norm(pts - center, axis=1))
-        scale = 1 + (intensity * 0.3)
-        return _apply_radial_warp(image, center, max_dist, scale)
-
-    @staticmethod
-    def slim_bridge(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
-        pts = np.array(points, dtype=np.float32)
-        center = pts.mean(axis=0)
-        extent = _bbox_extent(pts)
-        tip = pts[np.argmax(pts[:, 1])]
-
-        result = _apply_radial_warp(image, center, extent * 0.5, 1 - intensity * 0.25)
-        result = _apply_directional_warp(result, tip, radius=extent * 0.3,
-                                          dx=0, dy=intensity * extent * 0.12)
-        return result
-
-    @staticmethod
-    def doll_tip(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
-        pts = np.array(points, dtype=np.float32)
-        center = pts.mean(axis=0)
-        extent = _bbox_extent(pts)
-        tip = pts[np.argmax(pts[:, 1])]
-
-        result = _apply_radial_warp(image, center, extent * 0.55, 1 - intensity * 0.35)
-        result = _apply_radial_warp(result, tip, extent * 0.25, 1 - intensity * 0.3)
-        result = _apply_directional_warp(result, tip, radius=extent * 0.3,
-                                          dx=0, dy=intensity * extent * 0.15)
-        return result
-
-    @staticmethod
-    def natural(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
-        pts = np.array(points, dtype=np.float32)
-        center = pts.mean(axis=0)
-        extent = _bbox_extent(pts)
-        return _apply_radial_warp(image, center, extent * 0.5, 1 - intensity * 0.1)
+# (NoseWarping در nose_styles.py تعریف شده و از همان‌جا import می‌شود)
 
 
 # ============================================
-# لب (نسخه اصلاح‌شده با تفکیک بالا و پایین)
+# لب → استایل‌های دقیق lip_styles
 # ============================================
-
-class LipWarping:
-    @staticmethod
-    def fuller(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
-        """حجم‌دهی کامل لب با تفکیک بالا و پایین"""
-        pts = np.array(points, dtype=np.float32)
-        
-        if len(pts) < 3:
-            return image
-        
-        # تفکیک لب بالا و پایین بر اساس Y
-        y_min = pts[:, 1].min()
-        y_max = pts[:, 1].max()
-        y_mid = (y_min + y_max) / 2
-        
-        upper_pts = pts[pts[:, 1] < y_mid]
-        lower_pts = pts[pts[:, 1] >= y_mid]
-        
-        # مرکز هر بخش
-        upper_center = upper_pts.mean(axis=0) if len(upper_pts) > 0 else pts.mean(axis=0)
-        lower_center = lower_pts.mean(axis=0) if len(lower_pts) > 0 else pts.mean(axis=0)
-        
-        # شعاع هر بخش
-        upper_dist = np.max(np.linalg.norm(upper_pts - upper_center, axis=1)) if len(upper_pts) > 0 else 1
-        lower_dist = np.max(np.linalg.norm(lower_pts - lower_center, axis=1)) if len(lower_pts) > 0 else 1
-        
-        scale = 1 + (intensity * 0.3)
-        
-        result = image.copy()
-        
-        # لب بالا
-        if len(upper_pts) > 2:
-            result = _apply_radial_warp(result, upper_center, upper_dist * 0.6, scale)
-        
-        # لب پایین
-        if len(lower_pts) > 2:
-            result = _apply_radial_warp(result, lower_center, lower_dist * 0.6, scale)
-        
-        return result
-
-    @staticmethod
-    def thinner(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
-        pts = np.array(points, dtype=np.float32)
-        center = pts.mean(axis=0)
-        max_dist = np.max(np.linalg.norm(pts - center, axis=1))
-        scale = 1 - (intensity * 0.25)
-        return _apply_radial_warp(image, center, max_dist, scale)
-
-    @staticmethod
-    def heart_shape(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
-        pts = np.array(points, dtype=np.float32)
-        extent = _bbox_extent(pts)
-        cupid_point = pts[np.argmin(pts[:, 1])]
-        lower_point = pts[np.argmax(pts[:, 1])]
-
-        result = _apply_directional_warp(image, cupid_point, radius=extent * 0.3,
-                                          dx=0, dy=intensity * extent * 0.06)
-        result = _apply_radial_warp(result, lower_point, extent * 0.45, 1 + intensity * 0.35)
-        return result
-
-    @staticmethod
-    def russian(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
-        pts = np.array(points, dtype=np.float32)
-        center = pts.mean(axis=0)
-        extent = _bbox_extent(pts)
-
-        result = _apply_directional_warp(image, center, radius=extent * 0.5,
-                                          dx=0, dy=-intensity * extent * 0.1)
-        return result
-
-    @staticmethod
-    def natural(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
-        pts = np.array(points, dtype=np.float32)
-        center = pts.mean(axis=0)
-        max_dist = np.max(np.linalg.norm(pts - center, axis=1))
-        return _apply_radial_warp(image, center, max_dist, 1 + intensity * 0.12)
+# (LipWarping در lip_styles.py تعریف شده و از همان‌جا import می‌شود)
 
 
 # ============================================
@@ -211,7 +101,16 @@ class JawWarping:
         bottom = pts[-5:].mean(axis=0) if len(pts) >= 5 else pts.mean(axis=0)
         extent = _bbox_extent(pts)
         return _apply_directional_warp(image, bottom, radius=extent * 0.5,
-                                        dx=0, dy=-intensity * extent * 0.1)
+                                       dx=0, dy=-intensity * extent * 0.1)
+
+    @staticmethod
+    def smaller(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
+        """کوچک‌سازی چونه/فک: جمع‌کردن شعاعی ملایم حول مرکز ناحیه."""
+        pts = np.array(points, dtype=np.float32)
+        center = pts.mean(axis=0)
+        max_dist = np.max(np.linalg.norm(pts - center, axis=1))
+        return _apply_radial_warp(image, center, max_dist * 1.15,
+                                  1 - intensity * 0.22)
 
     @staticmethod
     def rounder(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
@@ -219,7 +118,16 @@ class JawWarping:
         bottom = pts[-5:].mean(axis=0) if len(pts) >= 5 else pts.mean(axis=0)
         extent = _bbox_extent(pts)
         return _apply_directional_warp(image, bottom, radius=extent * 0.5,
-                                        dx=0, dy=intensity * extent * 0.08)
+                                       dx=0, dy=intensity * extent * 0.08)
+
+    @staticmethod
+    def wider(image: np.ndarray, points: List[List[int]], intensity: float) -> np.ndarray:
+        pts = np.array(points, dtype=np.float32)
+        bottom = pts[-5:].mean(axis=0) if len(pts) >= 5 else pts.mean(axis=0)
+        extent = _bbox_extent(pts)
+        return _apply_directional_warp(image, bottom, radius=extent * 0.55,
+                                       dx=intensity * extent * 0.06,
+                                       dy=-intensity * extent * 0.04)
 
 
 # ============================================
@@ -268,38 +176,73 @@ class ForeheadWarping:
 
 class SpecializedWarping:
     def __init__(self):
+        # 🆕 بینی: موتور آناتومیک — امضا (image, landmarks, shape, intensity)
+        self.anatomy_handlers = {
+            'smaller': NoseAnatomyStyles.smaller,
+            'bigger': NoseAnatomyStyles.bigger,
+            'narrower': NoseAnatomyStyles.narrower,
+            'wider': NoseAnatomyStyles.wider,
+            'longer': NoseAnatomyStyles.longer,
+            'shorter': NoseAnatomyStyles.shorter,
+            'upturned_tip': NoseAnatomyStyles.upturned_tip,
+            'droopy_tip': NoseAnatomyStyles.droopy_tip,
+            'doll_tip': NoseAnatomyStyles.doll_tip,
+            'fleshy': NoseAnatomyStyles.fleshy,
+            'bony': NoseAnatomyStyles.bony,
+            'fantasy': NoseAnatomyStyles.fantasy,
+            'half_fantasy': NoseAnatomyStyles.half_fantasy,
+            'natural': NoseAnatomyStyles.natural,
+            'ideal_realistic': NoseAnatomyStyles.ideal_realistic,
+            'filler': NoseAnatomyStyles.filler,
+            'slim_bridge': NoseAnatomyStyles.slim_bridge,
+            'hump_reduction': NoseAnatomyStyles.hump_reduction,
+        }
+        # legacy handlers (points-based) برای سایر نواحی
         self.handlers = {
-            'nose': {
-                'smaller': NoseWarping.smaller,
-                'bigger': NoseWarping.bigger,
-                'slim_bridge': NoseWarping.slim_bridge,
-                'doll_tip': NoseWarping.doll_tip,
-                'natural': NoseWarping.natural,
-            },
+            'nose': {},   # بینی از anatomy_handlers عبور می‌کند
             'lip': {
-                'fuller': LipWarping.fuller,
-                'thinner': LipWarping.thinner,
-                'heart_shape': LipWarping.heart_shape,
-                'russian': LipWarping.russian,
-                'natural': LipWarping.natural,
+                'fuller': LipStyles.fuller,
+                'thinner': LipStyles.thinner,
+                'natural': LipStyles.natural,
+                'russian': LipStyles.russian,
+                'brazilian': LipStyles.brazilian,
+                'hollywood': LipStyles.hollywood,
+                'heart_shape': LipStyles.heart_shape,
+                'classic': LipStyles.classic,
+                'cupids_bow': LipStyles.cupids_bow,
+                'corner_lift': LipStyles.corner_lift,
             },
             'jaw': {
                 'sharper': JawWarping.sharper,
-                'rounder': JawWarping.rounder
+                'rounder': JawWarping.rounder,
+                'wider': JawWarping.wider,
             },
             'cheek': {
                 'enhance': CheekWarping.enhance,
-                'reduce': CheekWarping.reduce
+                'reduce': CheekWarping.reduce,
             },
             'forehead': {
                 'smooth': ForeheadWarping.smooth,
-                'enhance': ForeheadWarping.enhance
+                'enhance': ForeheadWarping.enhance,
             }
         }
-        logger.info("✅ SpecializedWarping initialized")
+        logger.info("✅ SpecializedWarping initialized (anatomy engine)")
 
     def warp(self, image: np.ndarray, points: List[List[int]],
-              area: str, action: str, intensity: float) -> np.ndarray:
+             area: str, action: str, intensity: float,
+             landmarks=None, image_shape=None) -> np.ndarray:
+        """landmarks + image_shape → فعال‌سازی موتور آناتومیک بینی."""
+        if area == 'nose' and landmarks is not None and image_shape is not None:
+            handler = self.anatomy_handlers.get(action)
+            if handler:
+                try:
+                    return handler(image, landmarks, image_shape, intensity)
+                except Exception as e:
+                    logger.warning(f"anatomy nose warp failed ({action}): {e}")
+                    return image
+            logger.warning(f"No anatomy handler for nose action={action}")
+            return image
+
         area_handlers = self.handlers.get(area, {})
         handler = area_handlers.get(action)
 
@@ -310,6 +253,8 @@ class SpecializedWarping:
             return image
 
     def get_available_actions(self, area: str) -> List[str]:
+        if area == 'nose':
+            return list(self.anatomy_handlers.keys())
         return list(self.handlers.get(area, {}).keys())
 
 

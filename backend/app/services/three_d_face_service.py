@@ -32,6 +32,7 @@ class ThreeDFaceService:
                 landmarks_3d.append({'x': lm.x, 'y': lm.y, 'z': lm.z})
 
             vertices = self._create_vertices(landmarks_3d)
+            uvs = self._create_uvs(landmarks_3d)
             faces = self._create_faces()
             modified_vertices = self._apply_modifications(vertices, modifications)
 
@@ -41,6 +42,7 @@ class ThreeDFaceService:
             return {
                 'status': 'success',
                 'vertices': modified_vertices.tolist(),
+                'uvs': uvs.tolist(),
                 'faces': faces,
                 'texture': texture_base64,
                 'num_vertices': len(modified_vertices),
@@ -57,11 +59,51 @@ class ThreeDFaceService:
             vertices.append([lm['x'] * 2 - 1, (1 - lm['y']) * 2 - 1, lm['z'] * 2])
         return np.array(vertices, dtype=np.float32)
 
+    def _create_uvs(self, landmarks_3d: List[Dict]) -> np.ndarray:
+        """
+        UV coordinates equal to the ORIGINAL normalized image position of
+        each landmark. When the photo is used as the texture and the mesh
+        is rendered in the [-1,1] plane, each vertex samples exactly the
+        pixel it came from -> the 3D mesh sits perfectly on the face in
+        the photo (AR-filter style).
+        """
+        uvs = []
+        for lm in landmarks_3d:
+            uvs.append([lm['x'], 1.0 - lm['y']])
+        return np.array(uvs, dtype=np.float32)
+
     def _create_faces(self) -> List[List[int]]:
-        faces = []
-        indices = list(range(0, 468, 3))
-        for i in range(len(indices) - 2):
-            faces.append([indices[i], indices[i + 1], indices[i + 2]])
+        """
+        Build a proper face mesh triangulation from MediaPipe's official
+        FACEMESH_TESSELATION. That constant contains EDGES (pairs of vertex
+        indices). Each edge [a, b] belongs to (usually two) triangles; to
+        reconstruct the triangles we find, for every edge, common neighbours
+        that also form an edge with it — i.e. build triangle set from the
+        edge graph: for edge (a, b), any vertex c where (a, c) and (b, c)
+        are also edges completes a triangle. Deduplicated, this yields the
+        canonical ~4000-triangle tesselation used by MediaPipe.
+        """
+        from mediapipe.python.solutions.face_mesh_connections import (
+            FACEMESH_TESSELATION,
+        )
+
+        # adjacency map for fast common-neighbour lookup
+        neighbors = {}
+        edges = set()
+        for a, b in FACEMESH_TESSELATION:
+            edges.add((min(a, b), max(a, b)))
+            neighbors.setdefault(a, set()).add(b)
+            neighbors.setdefault(b, set()).add(a)
+
+        faces_set = set()
+        for a, b in edges:
+            # intersect neighbour sets -> candidate third vertices
+            for c in neighbors[a] & neighbors[b]:
+                tri = tuple(sorted((a, b, c)))
+                faces_set.add(tri)
+
+        # sort for stable output
+        faces = [list(t) for t in sorted(faces_set)]
         return faces
 
     def _apply_modifications(self, vertices: np.ndarray, modifications: Dict) -> np.ndarray:

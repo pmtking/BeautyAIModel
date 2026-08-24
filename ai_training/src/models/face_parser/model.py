@@ -86,17 +86,26 @@ class FaceParserModel:
             logger.error(f"MediaPipe init failed: {e}")
             self._init_opencv()
 
+    def _ensure_cascades(self):
+        """Lazily create Haar cascades without switching detection mode.
+        Needed because _detect_opencv can be reached as a runtime fallback
+        even when MediaPipe is the primary detector."""
+        if not hasattr(self, 'face_cascade'):
+            self.face_cascade = cv2.CascadeClassifier(
+                cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            )
+        if not hasattr(self, 'eye_cascade'):
+            self.eye_cascade = cv2.CascadeClassifier(
+                cv2.data.haarcascades + 'haarcascade_eye.xml'
+            )
+        if not hasattr(self, 'smile_cascade'):
+            self.smile_cascade = cv2.CascadeClassifier(
+                cv2.data.haarcascades + 'haarcascade_smile.xml'
+            )
+
     def _init_opencv(self):
         self.use_mediapipe = False
-        self.face_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-        )
-        self.eye_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_eye.xml'
-        )
-        self.smile_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_smile.xml'
-        )
+        self._ensure_cascades()
         logger.info("✅ OpenCV fallback initialized")
 
     def detect(self, image_path: str) -> Optional[List[Dict]]:
@@ -128,6 +137,7 @@ class FaceParserModel:
 
     def _detect_opencv(self, image: np.ndarray) -> Optional[List[Dict]]:
         try:
+            self._ensure_cascades()
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             h, w = image.shape[:2]
 

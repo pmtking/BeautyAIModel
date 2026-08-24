@@ -77,10 +77,11 @@ class BlendingModel:
 
     def _alpha_blend(self, original: np.ndarray, warped: np.ndarray, 
                      mask: np.ndarray) -> np.ndarray:
-        """Alpha Blending - پایدار برای همه نقاط"""
-        # نرم‌سازی ماسک با شعاع مناسب
+        """Alpha Blending — ماسک از قبل نرم است؛ اینجا فقط یک بلور سبک لبه."""
         mask_float = mask.astype(np.float32) / 255.0
-        mask_float = cv2.GaussianBlur(mask_float, (self.blur_radius, self.blur_radius), 0)
+        # 🎯 قبلاً blur ثابت 51 دوباره ماسک را محو می‌کرد (افت اثر دوم)
+        # حالا فقط 5px برای هموارسازی پلکانی باقی مانده از create_mask
+        mask_float = cv2.GaussianBlur(mask_float, (5, 5), 0)
         mask_3d = np.stack([mask_float] * 3, axis=2)
         
         # ترکیب

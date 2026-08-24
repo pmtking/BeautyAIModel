@@ -6,7 +6,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from specialized import SpecializedWarping
+    try:
+        from warping.specialized import SpecializedWarping  # package import
+    except ImportError:
+        from specialized import SpecializedWarping          # flat import
 except ImportError:
     SpecializedWarping = None
     logger.warning("⚠️ SpecializedWarping not available")
@@ -29,7 +32,7 @@ class WarpingModel:
 
     def warp(self, image: np.ndarray, points: Union[List, np.ndarray],
              intensity: float = 0.5, action: str = 'smaller', 
-             area: str = 'nose') -> np.ndarray:
+             area: str = 'nose', landmarks=None, image_shape=None) -> np.ndarray:
         if isinstance(points, np.ndarray):
             points = points.tolist()
             
@@ -38,7 +41,9 @@ class WarpingModel:
 
         if self.specialized:
             try:
-                return self.specialized.warp(image, points, area, action, intensity)
+                return self.specialized.warp(image, points, area, action, intensity,
+                                             landmarks=landmarks,
+                                             image_shape=image_shape)
             except Exception as e:
                 logger.warning(f"Specialized warping failed: {e}")
 
@@ -92,13 +97,29 @@ class WarpingModel:
         if not points or len(points) < 3:
             return mask
         
-        pts = np.array(points, dtype=np.int32)
+        pts = np.array(points, dtype=np.float32)
         
-        cv2.fillPoly(mask, [pts], 255)
+        # 🎯 ضد-کجی: مرتب‌سازی زاویه‌ای نقاط حول مرکز — پلی‌گان‌های
+        # نامرتب (مثل بینی MediaPipe با ترتیب L/R درهم) self-intersection
+        # می‌سازند → مرکز ماسک جابجا → blend نوک را کج می‌کشد
+        c = pts.mean(axis=0)
+        angles = np.arctan2(pts[:, 1] - c[1], pts[:, 0] - c[0])
+        pts = pts[np.argsort(angles)]
+        
+        cv2.fillPoly(mask, [pts.astype(np.int32)], 255)
         
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         mask = cv2.dilate(mask, kernel, iterations=1)
-        mask = cv2.GaussianBlur(mask, (self.blur_radius, self.blur_radius), 0)
+        
+        # 🎯 بلور متناسب با اندازه ناحیه — نه ثابت!
+        # قبلاً blur=31 روی بینیِ ۱۳۰ پیکسلی، هسته ماسک را هم محو می‌کرد
+        # (۸۹٪ افت اثر!) → حالا ~۶٪ اندازه ناحیه، حداقل ۵ حداکثر ۲۱
+        area_px = float(cv2.countNonZero(mask))
+        side = max(np.sqrt(area_px), 12.0)
+        k = int(max(5, min(21, side * 0.16)))
+        if k % 2 == 0:
+            k += 1
+        mask = cv2.GaussianBlur(mask, (k, k), 0)
         mask = np.clip(mask, 0, 255).astype(np.uint8)
         
         return mask

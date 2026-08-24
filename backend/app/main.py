@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 # ایمپورت روت‌ها
-from app.api.v1 import analyze, edit, three_d
+from app.api.v1 import analyze, edit, three_d, retouch, manual_edit, avatar_3d
 
 app = FastAPI(
     title="BeautyAI API",
@@ -25,6 +25,9 @@ app.add_middleware(
 app.include_router(analyze.router, prefix="/api/v1", tags=["Analysis"])
 app.include_router(edit.router, prefix="/api/v1", tags=["Edit"])
 app.include_router(three_d.router, prefix="/api/v1", tags=["3D"])
+app.include_router(retouch.router, prefix="/api/v1", tags=["Retouch"])
+app.include_router(manual_edit.router, prefix="/api/v1", tags=["ManualEdit"])
+app.include_router(avatar_3d.router, prefix="/api/v1", tags=["Avatar3D"])
 
 
 @app.get("/")
