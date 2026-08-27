@@ -86,6 +86,40 @@ async def edit_face(
                 }
             )
 
+        # ═══════════════════════════════════════════
+        # ⚡ GPU Worker خانه (اگر تنظیم شده باشد)
+        #    درخواست سنگین (نیم‌رخ/شدت بالا/اکشن‌های سخت) → تولید مولد
+        #    هر خطایی → بی‌صدا به نتیجه آناتومیک برمی‌گردیم
+        # ═══════════════════════════════════════════
+        gen_meta = None
+        try:
+            from app.services import gpu_remote
+            from app.services.hybrid_router import should_use_generative
+
+            applied = result.get('applied_changes') or []
+            view = result.get('view', 'front')
+            inten = float(result.get('intensity') or 0.5)
+            action0 = (applied[0].get('action') if applied else None) or 'natural'
+
+            if gpu_remote.is_configured() \
+                    and should_use_generative(view, inten, action0)[0] \
+                    and gpu_remote.health():
+                try:
+                    gen_img = gpu_remote.generate_edit(image, action0, inten)
+                    result['image'] = gen_img
+                    gen_meta = {
+                        'engine': 'remote-gpu',
+                        'action': action0,
+                        'intensity': inten,
+                    }
+                except Exception as ge:
+                    logger.warning(f"remote generative failed, keeping "
+                                   f"anatomic result: {ge}")
+                    gen_meta = {'engine': 'anatomic-fallback',
+                                'error': str(ge)[:200]}
+        except Exception as re_:
+            logger.warning(f"gpu routing skipped: {re_}")
+
         _, buffer = cv2.imencode('.jpg', result['image'], [cv2.IMWRITE_JPEG_QUALITY, 95])
         img_base64 = base64.b64encode(buffer).decode('utf-8')
 
@@ -98,6 +132,8 @@ async def edit_face(
                 "intensity": result.get('intensity', 0.5),
                 # 🆕 تحلیل هوشمند «بهترین حالت فوق‌واقعی»
                 "ai_report": result.get('ai_report'),
+                # 🆕 کدام موتور: anatomic | remote-gpu | anatomic-fallback
+                "engine": (gen_meta or {}).get('engine', 'anatomic'),
                 "message": result.get('message', '✅ تغییرات با موفقیت اعمال شد')
             },
             "processing_time": round(time.time() - start_time, 3)

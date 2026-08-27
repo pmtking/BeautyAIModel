@@ -1,0 +1,24 @@
+# ============================================================
+#  BeautyAI — minimal CPU runtime (بدون torch/PostgreSQL)
+#  فقط چیزی که واقعاً import می‌شود
+# ============================================================
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.10.4
+
+# --- پردازش تصویر ---
+numpy==1.26.4
+opencv-contrib-python==4.10.0.84
+Pillow==11.1.0
+scipy==1.14.1
+scikit-image==0.25.0
+
+# --- تشخیص چهره ---
+mediapipe==0.10.18
+
+# --- WebSocket client/server extras ---
+websockets==14.1
+
+# --- SQLAlchemy فقط چون فایل db/database.py وجود دارد ---
+sqlalchemy==2.0.36

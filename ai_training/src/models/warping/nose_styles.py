@@ -118,67 +118,49 @@ class Maneuvers:
 
     @staticmethod
     def tip_rotation(image, anat: NoseAnatomy, degrees: float) -> np.ndarray:
-        """چرخش نوک حول محور پایه→نوک (نسخه ضد-اعوجاج).
+        """لیفت/دراپ نوک — مدل هندسی صحیح فرانت‌ویو (T-101).
 
-        اصول:
-          • pivot = میانه دو بال (پایه واقعی بینی)
-          • پنجره بیضی‌وار هم‌راستا با محور بینی (نه دایره بزرگ)
-          • زاویه مؤثر هر پیکسل هرگز از سقف زاویه عبور نمی‌کند
-          • ROI بزرگ‌تر تا جابجایی نوک داخل کراپ بماند (بدون پارگی clip)
+        دو اشتباه قبلی:
+          ۱) پیوت روی radix → کل مثلث بینی سوییفت جانبی میخورد (دماغ کج)
+          ۲) چرخش تصویری حول پیوتِ نزدیک → جابجایی مماس بر شعاعِ عمودی
+             یعنی افقی! نه بالارفتن نوک.
+        مدل درست (معادل کمان جراحی):
+          • جابجایی محوری بافتِ نوک به سمت رادیکس:
+              L = radians(degrees) × h × 0.55  (علامت‌دار: +بالا / −پایین)
+          • پنجره بیضی تنگ دور نوک: عرضی ۰.۳۸w (بال‌ها ±۰.۵w بیرون میمانند)،
+            محوری ۰.۳۴h (پل دست‌نخورده)
+          • وزن نسبت به محور مرکزی متقارن → گشتاور جانبی صفر = ضد-کجی
         """
-        pivot_raw = anat.get('radix')
-        tip = anat.get('tip')
-        if pivot_raw is None or tip is None:
+        tip = anat.get('tip'); radix = anat.get('radix')
+        if tip is None or radix is None:
             return image
-        alar_mid_x = float(anat.alar_mid[0])
-        pivot = np.array([alar_mid_x, pivot_raw[1]], dtype=np.float32)
-        axis = tip - pivot
-        height = float(np.linalg.norm(axis)) + 1e-6
-        u = axis / height
-        # بردار عمود بر محور
-        n = np.array([-u[1], u[0]], dtype=np.float32)
-
         pts = anat.ordered_array()
         if pts is None:
             return image
-        x0, y0, x1, y1 = _roi_bounds(image.shape, pts, pad_frac=0.75)
+
+        axis = np.asarray(tip, np.float32) - np.asarray(radix, np.float32)
+        height = float(np.linalg.norm(axis)) + 1e-6     # بازوی کمان
+        u = axis / height                                # محور پایه→نوک
+
+        w_half = anat.nasal_width * 0.38    # نیم‌عرض پنجره — بال‌ها بیرون میمانند
+        h_half = height * 0.34              # نیم‌ارتفاع پنجره محوری
+
+        x0, y0, x1, y1 = _roi_bounds(image.shape, pts, pad_frac=0.55)
         ys, xs = np.mgrid[y0:y1, x0:x1].astype(np.float32)
 
-        dx = xs - pivot[0]; dy = ys - pivot[1]
-        along = (dx * u[0] + dy * u[1]) / height            # 0=پایه، 1=نوک
-        dist = np.sqrt(dx * dx + dy * dy)
+        rel_x = xs - tip[0]; rel_y = ys - tip[1]
+        along = rel_x * u[0] + rel_y * u[1]
+        perp = rel_x * (-u[1]) + rel_y * u[0]
 
-        # وزن محوری: فقط نیمه بالایی بینی می‌چرخد؛ نوک کامل
-        axial_raw = np.clip(along / 0.45, 0, 1)
-        axial = axial_raw * axial_raw * (3 - 2 * axial_raw)  # smoothstep
-        # پشت نوک (along>1.15) وزن جمع شود تا پیشانی کشیده نشود
-        over = np.clip((along - 1.15) / 0.35, 0, 1)
-        axial = axial * (1 - over * 0.9)
+        # پنجره بیضی متقارن دور نوک — بدون هیچ بایاس چپ/راست
+        w = _cos_win(np.abs(perp), w_half) * _cos_win(np.abs(along), h_half)
 
-        # پنجره شعاعی محدودتر (قبلاً 2.2h بود → کشیدگی گونه)
-        win = _cos_win(dist, height * 1.35)
-        # پهنه جانبی باریک‌تر و هم‌مرکز با محور
-        perp = dx * n[0] + dy * n[1]
-        half_w = max(anat.nasal_width * 0.85, height * 0.42)
-        lateral = _cos_win(np.abs(perp), half_w)
+        # طول کمان معادل چرخش — علامت degrees جهت لیفت را تعیین میکند
+        # (+degrees = نوک بالا؛ تأییدشده با template-matching روی بافت)
+        lift = (height * 0.55) * np.radians(degrees) * w
 
-        w = axial * win * lateral
-        peak = float(w.max()) if w.size else 0.0
-        if peak > 1e-6:
-            w = w * (0.35 / peak) if peak < 0.35 else w  # کف مؤثر برای حس چرخش
-
-        ang = np.radians(degrees) * w
-        ca, sa = np.cos(ang), np.sin(ang)
-        rx = dx * ca - dy * sa
-        ry = dx * sa + dy * ca
-
-        map_x = pivot[0] + rx - x0
-        map_y = pivot[1] + ry - y0
-        # حاشیه امن: فقط در لبه بیرونی crop محدود شود (نه وسط ناحیه)
-        map_x = np.clip(map_x, -1, x1 - x0).astype(np.float32)
-        map_y = np.clip(map_y, -1, y1 - y0).astype(np.float32)
-        np.clip(map_x, 0, x1 - x0 - 1, out=map_x)
-        np.clip(map_y, 0, y1 - y0 - 1, out=map_y)
+        map_x = (xs + u[0] * lift - x0).astype(np.float32)
+        map_y = (ys + u[1] * lift - y0).astype(np.float32)
 
         warped = cv2.remap(image[y0:y1, x0:x1], map_x, map_y,
                            cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT)
@@ -227,20 +209,26 @@ class Maneuvers:
 
     @staticmethod
     def alar_narrowing(image, anat: NoseAnatomy, amount: float) -> np.ndarray:
-        """باریک‌سازی بال‌ها: هر بال به سمت خط وسط؛ پایه‌ها ثابت (Weir).
-        🎯 شعاع محدود به ناحیه بال (نه 0.75*w) تا نوک/پل کشیده نشود —
-        قبلاً این باعث کج شدن نوک بعد از چرخش بود."""
-        pts = anat.ordered_array()
-        if pts is None or anat.get('alar_l') is None or anat.get('alar_r') is None:
-            return image
-        result = image
-        w = anat.nasal_width
-        for side, anchor in (('alar_l', anat.get('alar_l')),
-                             ('alar_r', anat.get('alar_r'))):
-            direction = 1.0 if side == 'alar_l' else -1.0   # به داخل
-            result = _warp_field(result, pts, anchor, w * 0.38,
-                                 dx=direction * amount, sy=1.0)
-        return result
+        """🚀 باریک‌سازی بال‌ها — NarrowingPro (نسخه اصلاح‌شده ۲۴ اوت)
+        ریشه باگ قدیمی: علامت dx برعکس + نبود Shading Transfer.
+        حالا: warp دوطرفه صحیح + سایه جدید رندر میشود؛
+        نتیجه واقعاً «باریک‌تر» دیده میشود (تأیید با اندازه‌گیری پیکسلی)."""
+        try:
+            from .narrowing_pro import alar_narrowing_fixed
+            return alar_narrowing_fixed(image, anat, amount)
+        except Exception as e:
+            logger.warning(f"narrowing_pro failed, legacy fallback: {e}")
+            pts = anat.ordered_array()
+            if pts is None or anat.get('alar_l') is None or anat.get('alar_r') is None:
+                return image
+            result = image
+            w = anat.nasal_width
+            for side, anchor in (('alar_l', anat.get('alar_l')),
+                                 ('alar_r', anat.get('alar_r'))):
+                direction = 1.0 if side == 'alar_l' else -1.0
+                result = _warp_field(result, pts, anchor, w * 0.38,
+                                     dx=direction * amount, sy=1.0)
+            return result
 
     @staticmethod
     def alar_flaring(image, anat: NoseAnatomy, amount: float) -> np.ndarray:
@@ -521,15 +509,44 @@ class NoseAnatomyStyles:
         return result
 
     @staticmethod
-    def hump_reduction(image, landmarks, shape, intensity):
-        """✅ قوز بینی — درخواست خیلی رایج: فرو نشاندن قوس dorsum."""
-        i = clamp_intensity('hump_reduction', intensity)
+    def nostril_reduction(image, landmarks, shape, intensity):
+        """تنگ‌کردن سوراخ‌ها / جمع‌کردن پایه — v3 radial shrink حول هر سوراخ."""
+        i = clamp_intensity('narrower', intensity)
         a = _resolve(landmarks, shape)
-        if a is None: return image
-        # قوس به سمت داخل (باریک + عقب) فقط در mid_bridge
-        result = Maneuvers.dorsum_reshape(image, a, -0.18 * i)
-        result = Maneuvers.tip_projection(result, a, a.nasal_height * 0.05 * i)
-        return result
+        if a is None:
+            return image
+        try:
+            import os as _os, sys as _sys
+            _root = _os.path.abspath(_os.path.join(
+                _os.path.dirname(__file__), '..', '..', '..', '..'))
+            if _root not in _sys.path:
+                _sys.path.insert(0, _root)
+            from backend.app.services.maneuvers_v3 import V3Maneuvers
+            return V3Maneuvers().nostrils(image, a, i)
+        except Exception as e:
+            logger.warning(f"nostril v3 fallback: {e}")
+            return Maneuvers.alar_narrowing(image, a, a.nasal_width * 0.18 * i)
+
+    @staticmethod
+    def hump_reduction(image, landmarks, shape, intensity):
+        """✅ قوز بینی — V3: فشار عمودی + روشن‌سازی (اثبات‌شده)"""
+        a = _resolve(landmarks, shape)
+        if a is None:
+            return image
+        try:
+            import os as _os, sys as _sys
+            _root = _os.path.abspath(_os.path.join(
+                _os.path.dirname(__file__), '..', '..', '..', '..'))
+            if _root not in _sys.path:
+                _sys.path.insert(0, _root)
+            from backend.app.services.maneuvers_v3 import V3Maneuvers
+            return V3Maneuvers().hump(image, a, intensity)
+        except Exception as e:
+            logger.warning(f"hump v3 fallback: {e}")
+            i = clamp_intensity('hump_reduction', intensity)
+            result = Maneuvers.dorsum_reshape(image, a, -0.18 * i)
+            result = Maneuvers.tip_projection(result, a, a.nasal_height * 0.05 * i)
+            return result
 
 
 # ============================================

@@ -196,6 +196,9 @@ class SpecializedWarping:
             'filler': NoseAnatomyStyles.filler,
             'slim_bridge': NoseAnatomyStyles.slim_bridge,
             'hump_reduction': NoseAnatomyStyles.hump_reduction,
+            # 🆕 T-101: سوراخ‌ها / پایه بینی
+            'nostril_reduction': NoseAnatomyStyles.nostril_reduction,
+            'alar_reduction': NoseAnatomyStyles.nostril_reduction,
         }
         # legacy handlers (points-based) برای سایر نواحی
         self.handlers = {

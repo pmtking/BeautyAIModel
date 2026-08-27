@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BeautyAI — آینه هوشمند</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+  :root{
+    --bg:#05060f; --card:rgba(255,255,255,.055); --border:rgba(255,255,255,.1);
+    --txt:#f2f4fb; --mut:#9aa3c0;
+    --g1:#6366f1; --g2:#a855f7; --g3:#ec4899;
+    --grad:linear-gradient(135deg,#6366f1,#a855f7 50%,#ec4899);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--txt);font-family:Vazirmatn,Tahoma,sans-serif;
+       min-height:100dvh;display:flex;flex-direction:column;overflow:hidden;
+       user-select:none;-webkit-user-select:none}
+  .glow{position:fixed;inset:0;z-index:-1;pointer-events:none}
+  .glow::before{content:'';position:absolute;width:80vw;height:60vw;border-radius:50%;
+    background:radial-gradient(circle,#6366f1 0%,transparent 65%);opacity:.14;
+    top:-25%;right:-25%;filter:blur(70px)}
+  .glow::after{content:'';position:absolute;width:70vw;height:55vw;border-radius:50%;
+    background:radial-gradient(circle,#ec4899 0%,transparent 65%);opacity:.11;
+    bottom:-20%;left:-20%;filter:blur(70px)}
+
+  /* ---------- هدر ---------- */
+  header{display:flex;align-items:center;justify-content:space-between;
+    padding:16px 20px 10px;flex-shrink:0}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:16.5px}
+  .bicon{width:34px;height:34px;border-radius:10px;background:var(--grad);
+    display:grid;place-items:center;font-size:15px;
+    box-shadow:0 3px 16px rgba(139,92,246,.5)}
+  .live{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--mut);
+    border:1px solid var(--border);border-radius:99px;padding:6px 13px;
+    background:rgba(255,255,255,.03);backdrop-filter:blur(8px)}
+  .ldot{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:p 1.8s infinite}
+  @keyframes p{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}50%{box-shadow:0 0 0 6px rgba(34,197,94,0)}}
+
+  /* ---------- استیج ---------- */
+  main{flex:1;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;padding:6px 18px;min-height:0}
+  .stage{position:relative;width:min(92vw,420px);aspect-ratio:3/4;
+    border-radius:28px;overflow:hidden;background:#0a0c1a;
+    box-shadow:0 24px 70px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06);
+    flex-shrink:0}
+  video,img.snap{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  canvas.face{position:absolute;inset:0;width:100%;height:100%}
+
+  /* حلقه اسکن */
+  .scanline{position:absolute;left:0;right:0;height:2px;top:0;
+    background:linear-gradient(90deg,transparent,#22d3ee,transparent);
+    box-shadow:0 0 18px #22d3ee;animation:scan 2.1s ease-in-out infinite;display:none}
+  @keyframes scan{0%,100%{top:8%}50%{top:90%}}
+  .stage.scanning .scanline{display:block}
+
+  /* حالت‌ها */
+  .ovl{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;gap:14px;
+    padding:26px;background:rgba(5,6,15,.55);backdrop-filter:blur(6px);
+    transition:opacity .35s}
+  .ovl.hide{opacity:0;pointer-events:none}
+  .big-ico{font-size:44px;line-height:1}
+  .ovl h2{font-size:17.5px;font-weight:800}
+  .ovl p{font-size:12.8px;color:var(--mut);line-height:1.95;max-width:270px}
+  .spinner{width:44px;height:44px;border-radius:50%;
+    border:3.5px solid rgba(255,255,255,.12);border-top-color:#a78bfa;
+    animation:spin .85s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err-ico{width:52px;height:52px;border-radius:50%;background:rgba(239,68,68,.15);
+    border:1px solid rgba(239,68,68,.4);display:grid;place-items:center;font-size:23px}
+
+  /* نشانگر قاب چهره */
+  .frame-hint{position:absolute;inset:0;pointer-events:none;display:none}
+  .frame-hint svg{width:100%;height:100%}
+  .stage.idle .frame-hint{display:block}
+
+  /* برچسب نتیجه */
+  .result-tag{position:absolute;top:14px;right:14px;z-index:6;
+    background:linear-gradient(135deg,rgba(99,102,241,.95),rgba(168,85,247,.95));
+    padding:7px 15px;border-radius:99px;font-size:12px;font-weight:700;
+    display:none;box-shadow:0 4px 18px rgba(139,92,246,.45)}
+
+  /* ---------- نوار انتخاب تغییر ---------- */
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:14px 18px 4px;width:100%;
+    flex-shrink:0;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex-shrink:0;padding:9px 17px;border-radius:99px;font-size:12.8px;
+    font-weight:600;color:var(--mut);background:var(--card);
+    border:1px solid var(--border);transition:.22s;cursor:pointer;white-space:nowrap}
+  .chip.on{color:#fff;background:var(--grad);border-color:transparent;
+    box-shadow:0 4px 18px rgba(139,92,246,.42)}
+
+  /* شدت */
+  .inten-row{display:flex;align-items:center;gap:12px;width:calc(100% - 36px);
+    max-width:400px;padding:10px 4px 2px;flex-shrink:0}
+  .inten-row span{font-size:12px;color:var(--mut);white-space:nowrap}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:5px;
+    border-radius:99px;background:rgba(255,255,255,.12);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:21px;height:21px;
+    border-radius:50%;background:#fff;box-shadow:0 0 0 5px rgba(139,92,246,.32),0 2px 8px rgba(0,0,0,.4);
+    cursor:pointer}
+  #ival{min-width:38px;text-align:center;color:#c4b5fd;font-weight:800;font-size:13px}
+
+  /* ---------- دکمه‌ها ---------- */
+  .actions{display:flex;gap:12px;padding:12px 18px calc(18px + env(safe-area-inset-bottom));
+    width:100%;max-width:430px;flex-shrink:0}
+  .btn{flex:1;border:none;font-family:inherit;cursor:pointer;
+    padding:15px 10px;border-radius:16px;font-size:14.5px;font-weight:800;
+    transition:.22s;display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn-main{background:var(--grad);color:#fff;
+    box-shadow:0 6px 26px rgba(139,92,246,.48)}
+  .btn-main:active{transform:scale(.97)}
+  .btn-main:disabled{opacity:.55;box-shadow:none}
+  .btn-sub{background:var(--card);border:1px solid var(--border);color:var(--txt)}
+  .btn-sub:active{transform:scale(.97)}
+  .btn-cmp{display:none}
+
+  /* مقایسه لمسی */
+  .cmp-mode img.snap.after{clip-path:inset(0 0 0 50%)}
+  .cmp-bar{position:absolute;top:0;bottom:0;width:3px;left:50%;z-index:5;
+    background:linear-gradient(180deg,transparent,#fff 18%,#fff 82%,transparent);
+    box-shadow:0 0 16px rgba(255,255,255,.6);display:none}
+  .cmp-mode .cmp-bar{display:block}
+  .cmp-knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.96);
+    display:grid;place-items:center;font-size:18px;color:#111;font-weight:900;
+    box-shadow:0 4px 20px rgba(0,0,0,.45)}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+
+<header>
+  <div class="brand"><span class="bicon">✦</span> BeautyAI</div>
+  <div class="live"><span class="ldot"></span> متصل به موتور</div>
+</header>
+
+<main>
+  <div class="stage idle" id="stage">
+    <video id="cam" autoplay playsinline muted></video>
+
+    <!-- قاب راهنما -->
+    <div class="frame-hint">
+      <svg viewBox="0 0 300 400" fill="none">
+        <path d="M40 30 h-18 a12 12 0 0 0 -12 12 v18" stroke="#ffffff88" stroke-width="3" stroke-linecap="round"/>
+        <path d="M260 30 h18 a12 12 0 0 1 12 12 v18" stroke="#ffffff88" stroke-width="3" stroke-linecap="round"/>
+        <path d="M40 370 h-18 a12 12 0 0 1 -12 -12 v-18" stroke="#ffffff88" stroke-width="3" stroke-linecap="round"/>
+        <path d="M260 370 h18 a12 12 0 0 0 12 -12 v-18" stroke="#ffffff88" stroke-width="3" stroke-linecap="round"/>
+        <ellipse cx="150" cy="185" rx="72" ry="105" stroke="#ffffff44" stroke-width="2.5"
+                 stroke-dasharray="7 9" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <canvas class="face" id="overlay"></canvas>
+    <div class="scanline"></div>
+    <img class="snap" id="snap" style="display:none" alt="">
+    <div class="cmp-bar" id="cmpBar"><div class="cmp-knob">⇔</div></div>
+    <div class="result-tag" id="rtag">✨ اعمال شد</div>
+
+    <!-- حالت شروع -->
+    <div class="ovl" id="ovStart">
+      <div class="big-ico">🪞</div>
+      <h2>آینه هوشمند زیبایی</h2>
+      <p>برای شروع، دوربین را فعال کنید و صورتتان را در قاب نگه دارید.<br>نتیجه در لحظه روی چهره‌ی خودتان اعمال می‌شود.</p>
+      <button class="btn btn-main" style="padding:13px 34px" onclick="startCam()">فعال‌سازی دوربین 📷</button>
+    </div>
+
+    <!-- حالت پردازش -->
+    <div class="ovl hide" id="ovBusy">
+      <div class="spinner"></div>
+      <h2>موتور در حال کار…</h2>
+      <p>آنالیز ۴۷۸ نقطه چهره و اعمال تغییرات هوشمند</p>
+    </div>
+
+    <!-- حالت خطا -->
+    <div class="ovl hide" id="ovErr">
+      <div class="err-ico">⚠️</div>
+      <h2 id="errTitle">خطایی رخ داد</h2>
+      <p id="errMsg"></p>
+      <button class="btn btn-main" style="padding:12px 30px" onclick="retry()">تلاش مجدد</button>
+    </div>
+  </div>
+
+  <!-- انتخاب تغییر -->
+  <div class="chips" id="chips">
+    <div class="chip on" data-t="دماغم رو کوچیکتر کن">👃 بینی کوچک‌تر</div>
+    <div class="chip" data-t="بینی رو باریک کن">بینی باریک‌تر</div>
+    <div class="chip" data-t="قوز بینی رو بردار">بدون قوز</div>
+    <div class="chip" data-t="نوک بینی رو بالا ببر">نوک بالا</div>
+    <div class="chip" data-t="بینی فانتزی">فانتزی</div>
+    <div class="chip" data-t="بهترین حالت فوق واقعی">⭐ بهترین حالت AI</div>
+    <div class="chip" data-t="لبام رو پرتر کن">👄 لب پرتر</div>
+    <div class="chip" data-t="فکم رو تیز کن">🦴 فک تیزتر</div>
+    <div class="chip" data-t="گونه هام رو پرتر کن">گونه پرتر</div>
+  </div>
+
+  <!-- شدت -->
+  <div class="inten-row">
+    <span>شدت</span>
+    <input type="range" id="inten" min="20" max="100" value="55">
+    <b id="ival">۵۵٪</b>
+  </div>
+
+  <!-- دکمه‌ها -->
+  <div class="actions">
+    <button class="btn btn-sub" id="btnCmp" onclick="toggleCompare()">⇔ مقایسه</button>
+    <button class="btn btn-main" id="btnGo" onclick="applyEdit()">✨ اعمال تغییر</button>
+    <button class="btn btn-sub" id="btnRe" style="display:none" onclick="resetAll()">🔄 عکس جدید</button>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const stage=$('stage'), cam=$('cam'), snap=$('snap'), ov=$('overlay'),
+      ovStart=$('ovStart'), ovBusy=$('ovBusy'), ovErr=$('ovErr'),
+      rtag=$('rtag'), cmpBar=$('cmpBar');
+
+const API = window.location.origin + '/api/v1/edit';
+let stream=null, lastBefore=null, lastAfter=null, cmpOn=false;
+
+// fa numbers
+const fa = n => String(n).replace(/\d/g, d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
+$('inten').addEventListener('input', e=> $('ival').textContent = fa(e.target.value)+'٪');
+
+// chips
+let curText='دماغم رو کوچیکتر کن';
+document.querySelectorAll('.chip').forEach(c=>{
+  c.onclick=()=>{
+    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+    c.classList.add('on'); curText=c.dataset.t;
+  };
+});
+
+// ---------- دوربین ----------
+async function startCam(){
+  try{
+    show(null);
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:960} },
+      audio:false
+    });
+    cam.srcObject = stream;
+    stage.classList.add('idle');
+  }catch(e){
+    showError('دسترسی به دوربین داده نشد',
+      'لطفاً از منوی مرورگر ← تنظیمات سایت، اجازه‌ی دوربین را فعال کنید.');
+  }
+}
+function show(which){
+  [ovStart,ovBusy,ovErr].forEach(o=>o.classList.add('hide'));
+  if(which) which.classList.remove('hide');
+}
+function showError(t,m){ $('errTitle').textContent=t; $('errMsg').textContent=m; show(ovErr); }
+function retry(){ resetAll(); }
+
+// ---------- گرفتن فریم ----------
+function grab(){
+  const vw=cam.videoWidth, vh=cam.videoHeight;
+  if(!vw) return null;
+  const c=document.createElement('canvas'); c.width=vw; c.height=vh;
+  c.getContext('2d').drawImage(cam,0,0,vw,vh);
+  return c.toDataURL('image/jpeg',0.92);
+}
+
+// b64 -> img element
+function loadImg(src){return new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=src;});}
+
+// ---------- اعمال تغییر ----------
+async function applyEdit(){
+  const frame = grab();
+  if(!frame){ showError('دوربین آماده نیست','یک لحظه صبر کنید و دوباره بزنید.'); return; }
+
+  stage.classList.remove('idle');
+  show(ovBusy); $('btnGo').disabled=true;
+  rtag.style.display='none';
+
+  // ذخیره قبل
+  if(!lastBefore) lastBefore = frame;
+
+  try{
+    const fd=new FormData();
+    const blob=await (await fetch(frame)).blob();
+    fd.append('file', blob, 'selfie.jpg');
+    fd.append('text', curText);
+    fd.append('intensity', ($('inten').value/100).toFixed(2));
+
+    const t0=performance.now();
+    const res=await fetch(API,{method:'POST',body:fd});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(data.status!=='success') throw new Error(data.message||'پردازش ناموفق');
+
+    const after=data.data.image;   // b64 jpeg
+    lastAfter=after;
+
+    const img=await loadImg(after);
+    snap.src=after; snap.style.display='block'; cam.style.display='none';
+    drawFace(img);
+
+    const dt=((performance.now()-t0)/1000).toFixed(1);
+    rtag.textContent='✨ اعمال شد • '+fa(dt)+' ثانیه';
+    rtag.style.display='block';
+
+    // UI
+    $('btnGo').textContent='🔁 دوباره اعمال کن';
+    $('btnRe').style.display='flex';
+    $('btnCmp').style.display='flex';
+
+  }catch(e){
+    showError('پردازش انجام نشد',
+      'احتمالاً چهره کاملاً در قاب نبود. رو به نور، نزدیک‌تر و مستقیم به دوربین نگاه کنید.');
+  }finally{
+    show(null); $('btnGo').disabled=false;
+  }
+}
+
+// نقاط چهره سبز ظریف روی خروجی
+function drawFace(img){
+  return; // فعلاً غیرفعال — خروجی تمیزتر است
+}
+
+// ---------- مقایسه ----------
+function toggleCompare(){
+  cmpOn=!cmpOn;
+  if(cmpOn && !lastAfter) { cmpOn=false; return; }
+  stage.classList.toggle('cmp-mode', cmpOn);
+  if(cmpOn){
+    // قبل زیر، بعد بالا با کلیپ
+    const im=new Image(); im.src=lastBefore;
+    snap.parentElement.insertBefore(im, snap);
+    im.className='snap before'; im.id='beforeImg';
+    im.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
+    requestAnimationFrame(()=>{ setClip(50); });
+    stage.addEventListener('touchmove',onDrag,{passive:true});
+    stage.addEventListener('mousemove',onDrag);
+  }else{
+    const b=document.getElementById('beforeImg'); if(b) b.remove();
+    snap.style.clipPath='';
+    stage.removeEventListener('touchmove',onDrag);
+    stage.removeEventListener('mousemove',onDrag);
+    cmpBar.style.left='50%';
+  }
+}
+function onDrag(e){
+  if(!cmpOn) return;
+  const x=(e.touches?e.touches[0].clientX:e.clientX);
+  const r=stage.getBoundingClientRect();
+  let p=Math.min(100,Math.max(0,(x-r.left)/r.width*100));
+  setClip(p);
+}
+function setClip(p){
+  snap.style.clipPath=`inset(0 0 0 ${p}%)`;
+  cmpBar.style.left=p+'%';
+}
+
+// ---------- ریست ----------
+function resetAll(){
+  cmpOn=false;
+  const b=document.getElementById('beforeImg'); if(b) b.remove();
+  snap.style.clipPath=''; snap.style.display='none'; cam.style.display='block';
+  rtag.style.display='none'; cmpBar.style.left='50%';
+  stage.classList.remove('cmp-mode'); stage.classList.add('idle');
+  lastBefore=null; lastAfter=null;
+  $('btnGo').textContent='✨ اعمال تغییر';
+  $('btnRe').style.display='none'; $('btnCmp').style.display='none';
+  ov.getContext&&ov.getContext('2d').clearRect(0,0,ov.width,ov.height);
+}
+
+// اتصال خودکار وقتی صفحه لود شد (مرورگر اجازه میخواهد)
+window.addEventListener('load',()=>{ /* دوربین فقط با کلیک کاربر روشن میشود */ });
+</script>
+</body>
+</html>

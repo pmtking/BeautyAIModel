@@ -1,0 +1,15 @@
+# فایل‌های که نباید وارد ایمیج داکر شوند
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+*.jpg
+*.jpeg
+*.png
+*.log
+test.py
+Dockerfile
+docker-compose.yml
+README.md

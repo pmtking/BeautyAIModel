@@ -1,29 +1,42 @@
-version: '3.8'
-
+# ============================================================
+#  BeautyAI — Full stack (Backend + PostgreSQL)
+#  استفاده:   docker compose up -d --build
+#  تست:      curl http://localhost:8000/health
+# ============================================================
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: beautyai-backend:latest
+    container_name: beautyai-backend
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://beauty_user:beauty_pass@db:5432/beauty_db
+      - MIN_GEN_VRAM_GB=10
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
-    image: postgres:15
+    image: postgres:16-alpine
+    container_name: beautyai-db
     environment:
       POSTGRES_USER: beauty_user
       POSTGRES_PASSWORD: beauty_pass
       POSTGRES_DB: beauty_db
     ports:
       - "5432:5432"
+    restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  backend:
-    build: ./backend
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgresql+asyncpg://beauty_user:beauty_pass@db/beauty_db
-    volumes:
-      - ./backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beauty_user -d beauty_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   postgres_data:
-  

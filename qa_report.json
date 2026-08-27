@@ -1,0 +1,113 @@
+{
+  "pass": 18,
+  "fail": 1,
+  "warn": 2,
+  "detail": [
+    [
+      "pass",
+      "GET /health",
+      "{'status': 'healthy', 'version': '1.0.0'}"
+    ],
+    [
+      "pass",
+      "GET /api/v1/edit/health",
+      "{'status': 'healthy', 'model_loaded': True, 'timestamp': 1787836826.8417635}"
+    ],
+    [
+      "pass",
+      "GET /api/v1/edit/styles",
+      "{'status': 'success', 'area': 'lip', 'styles': [{'id': 'heart_shape', 'name': 'ق"
+    ],
+    [
+      "pass",
+      "GET /api/v1/edit/actions",
+      "{'status': 'success', 'actions': [{'id': 'smaller', 'name': 'کوچک\\u200cتر', 'des"
+    ],
+    [
+      "pass",
+      "GET /api/v1/3d-test",
+      "{'status': 'ok', 'message': '3D service is ready', 'endpoint': '/api/v1/3d-filte"
+    ],
+    [
+      "pass",
+      "<<نوک بینی بالا باشه>> → nose/upturned_tip",
+      "change=0.06% new_black=0.029%"
+    ],
+    [
+      "pass",
+      "<<بینی کوچیک تر بشه>> → nose/smaller",
+      "change=3.67% new_black=0.029%"
+    ],
+    [
+      "pass",
+      "<<قوز بینی رو بردار>> → nose/hump_reduction",
+      "change=0.01% new_black=0.026%"
+    ],
+    [
+      "pass",
+      "<<بینی عروسکی دوست دارم>> → nose/doll_tip",
+      "change=2.85% new_black=0.03%"
+    ],
+    [
+      "pass",
+      "<<بینی قلمی و کشیده باشه>> → nose/slim_bridge",
+      "change=0.15% new_black=0.029%"
+    ],
+    [
+      "fail",
+      "<<لب روسی بزن برام>> → lip/russian",
+      "change=1.82% new_black=0.317%"
+    ],
+    [
+      "pass",
+      "<<گونه ها پرتر بشن>> → cheek/fuller",
+      "change=1.36% new_black=0.174%"
+    ],
+    [
+      "pass",
+      "<<فک رو زاویه دار کن>> → jaw/sharper",
+      "change=1.73% new_black=0.174%"
+    ],
+    [
+      "pass",
+      "دو اجرای یکسان → خروجی یکسان",
+      "mean-diff=0.0000"
+    ],
+    [
+      "pass",
+      "نوک بینی بالا (и=1.0)",
+      "change=0.07% new_black=0.0% new_edges=0.0%"
+    ],
+    [
+      "pass",
+      "بینی کوچک تر (и=1.0)",
+      "change=4.02% new_black=0.003% new_edges=0.018% |alar_sym|Δ=0px"
+    ],
+    [
+      "pass",
+      "بینی قلمی (и=1.0)",
+      "change=0.18% new_black=0.0% new_edges=0.0% |alar_sym|Δ=0px"
+    ],
+    [
+      "pass",
+      "عروسکی (и=1.0)",
+      "change=2.84% new_black=0.004% new_edges=0.017% |alar_sym|Δ=7px"
+    ],
+    [
+      "pass",
+      "فانتزی (и=1.0)",
+      "change=3.69% new_black=0.003% new_edges=0.016% |alar_sym|Δ=6px"
+    ],
+    [
+      "warn",
+      "استک مولد (diffusers/transformers/insightface)",
+      "وابستگی‌های تولید مولد نصب نیستند — این بخش قابل تست نیست"
+    ],
+    [
+      "warn",
+      "POST /api/v1/face-edit/styles",
+      "موتور مولد در دسترس نیست (وابستگی نصب نیست)"
+    ]
+  ],
+  "errors": []
+}

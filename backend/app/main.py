@@ -1,12 +1,14 @@
 # app/main.py
 # pmtking @copyright 2026 all rights reserved mohammad taheri
 
+from pathlib import Path
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 # ایمپورت روت‌ها
-from app.api.v1 import analyze, edit, three_d, retouch, manual_edit, avatar_3d
+from app.api.v1 import analyze, edit, three_d, retouch, manual_edit, avatar_3d, chat
 
 app = FastAPI(
     title="BeautyAI API",
@@ -28,6 +30,10 @@ app.include_router(three_d.router, prefix="/api/v1", tags=["3D"])
 app.include_router(retouch.router, prefix="/api/v1", tags=["Retouch"])
 app.include_router(manual_edit.router, prefix="/api/v1", tags=["ManualEdit"])
 app.include_router(avatar_3d.router, prefix="/api/v1", tags=["Avatar3D"])
+app.include_router(chat.router, prefix="/api/v1", tags=["Chat"])
+
+from app.api.v1 import face_edit
+app.include_router(face_edit.router, prefix="/api/v1", tags=["FaceEdit"])
 
 
 @app.get("/")
@@ -45,6 +51,15 @@ async def health_check():
         "status": "healthy",
         "version": "1.0.0"
     }
+
+
+# ---------- صفحه آینه هوشمند (دموی زنده روی موبایل) ----------
+_STATIC = Path(__file__).resolve().parent / "static"
+
+
+@app.get("/mirror")
+async def live_mirror():
+    return FileResponse(_STATIC / "live_mirror.html", media_type="text/html")
 
 
 if __name__ == "__main__":
