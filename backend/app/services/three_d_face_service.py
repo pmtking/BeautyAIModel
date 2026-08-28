@@ -3,14 +3,16 @@ import numpy as np
 import base64
 from typing import Dict, Optional, List
 import logging
-import mediapipe as mp
+
+# سازگارکننده MediaPipe برای نسخه‌های جدید (Tasks API)
+from app.services.mp_shim import face_mesh as mp_face_mesh
 
 logger = logging.getLogger(__name__)
 
 
 class ThreeDFaceService:
     def __init__(self):
-        self.mp_face_mesh = mp.solutions.face_mesh
+        self.mp_face_mesh = mp_face_mesh
         self.face_mesh = self.mp_face_mesh.FaceMesh(
             static_image_mode=True,
             max_num_faces=1,

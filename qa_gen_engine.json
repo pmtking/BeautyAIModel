@@ -1,0 +1,12 @@
+{
+  "state": "blocked",
+  "issue": "NumPy 2.4.6 installed but requirements pin numpy==1.26.4; torch 2.2.0 was compiled against NumPy 1.x, so importing torch fails (UserWarning: Failed to initialize NumPy) and torch.cuda.is_available() returns False. GenerativeEngine therefore reports 'GPU available: False' and stays disabled.",
+  "evidence": {
+    "requirements.txt": "numpy==1.26.4 (line 22), torch==2.2.0 (line 35)",
+    "backend/requirements.txt": "numpy==1.26.4 (line 10)",
+    "pip list": "numpy 2.4.6 installed (mismatch)",
+    "runtime": "Import OK; GPU available: False; Engine instance: False"
+  },
+  "proposed_fix": "downgrade numpy to 1.26.4: ../venv/bin/pip install 'numpy==1.26.4' --force-reinstall, then re-run check",
+  "lower_gpu_threshold": "MIN_GEN_VRAM_GB default is 10; if GPU has less VRAM, set to 6 to enable"
+}

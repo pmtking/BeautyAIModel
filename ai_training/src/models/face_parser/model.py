@@ -71,20 +71,30 @@ class FaceParserModel:
         logger.info("✅ FaceParserModel initialized")
 
     def _init_mediapipe(self):
-        try:
-            self.mp_face_mesh = mp.solutions.face_mesh
-            self.face_mesh = self.mp_face_mesh.FaceMesh(
-                static_image_mode=True,
-                max_num_faces=1,
-                min_detection_confidence=0.5
-            )
-            self.mp_drawing = mp.solutions.drawing_utils
-            self.mp_drawing_styles = mp.solutions.drawing_styles
-            self.use_mediapipe = True
-            logger.info("✅ MediaPipe initialized")
-        except Exception as e:
-            logger.error(f"MediaPipe init failed: {e}")
-            self._init_opencv()
+            try:
+                # در نسخه‌های جدید mediapipe (>=0.10.30 برای py3.12+) ماژول
+                # solutions حذف شده — از shim سازگار استفاده می‌کنیم.
+                try:
+                    from app.services.mp_shim import face_mesh as mp_face_mesh_shim
+                    self.mp_face_mesh = mp_face_mesh_shim
+                except Exception:
+                    self.mp_face_mesh = mp.solutions.face_mesh
+                self.face_mesh = self.mp_face_mesh.FaceMesh(
+                    static_image_mode=True,
+                    max_num_faces=1,
+                    min_detection_confidence=0.5
+                )
+                try:
+                    self.mp_drawing = mp.solutions.drawing_utils
+                    self.mp_drawing_styles = mp.solutions.drawing_styles
+                except Exception:
+                    self.mp_drawing = None
+                    self.mp_drawing_styles = None
+                self.use_mediapipe = True
+                logger.info("✅ MediaPipe initialized")
+            except Exception as e:
+                logger.error(f"MediaPipe init failed: {e}")
+                self._init_opencv()
 
     def _ensure_cascades(self):
         """Lazily create Haar cascades without switching detection mode.

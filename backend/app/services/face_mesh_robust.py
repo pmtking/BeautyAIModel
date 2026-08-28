@@ -14,6 +14,9 @@ import numpy as np
 import logging
 from typing import Dict, List, Optional, Tuple
 
+# استفاده از سازگارکننده MediaPipe (Tasks API در نسخه‌های جدید)
+from app.services.mp_shim import face_mesh as mp_face_mesh
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,8 +26,7 @@ class RobustFaceMesh:
         self._mp = None
 
     def _make_fm(self, conf: float):
-        import mediapipe as mp
-        return mp.solutions.face_mesh.FaceMesh(
+        return mp_face_mesh.FaceMesh(
             static_image_mode=True,
             max_num_faces=1,
             refine_landmarks=True,

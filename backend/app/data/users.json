@@ -1,0 +1,26 @@
+{
+  "testuser": {
+    "username": "testuser",
+    "password": "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae",
+    "full_name": "",
+    "role": "user",
+    "token": "08a8415e80b8ee59c200ce86912082202b99bf792d144005",
+    "created_at": 1787844038.999091
+  },
+  "admin": {
+    "username": "admin",
+    "password": "a6231775a7d9f44d87fa4a57d8e214cc981ad6e6e9459f858153d8bf9321c7ff",
+    "full_name": "Administrator",
+    "role": "admin",
+    "token": "4aceef12c4c99a27dccc480d9c0c53e527bf14e332294b41",
+    "created_at": 1787949839.1818035
+  },
+  "clinic1": {
+    "username": "clinic1",
+    "password": "9b8769a4a742959a2d0298c36fb70623f2dfacda8436237df08d8dfd5b37374c",
+    "full_name": "کلینیک تست",
+    "role": "user",
+    "token": "93b119def34f8f46168b6f6b1f6d2642dd056bd36fec05f8",
+    "created_at": 1787949839.2028496
+  }
+}

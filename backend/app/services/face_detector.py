@@ -1,8 +1,9 @@
 import cv2
-import mediapipe as mp
 import numpy as np
 
-mp_face_mesh = mp.solutions.face_mesh
+# سازگارکننده MediaPipe برای نسخه‌های جدید (بدون solutions)
+from app.services.mp_shim import face_mesh as mp_face_mesh
+
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, min_detection_confidence=0.5)
 
 def get_nose_landmarks(image_bytes: bytes):
